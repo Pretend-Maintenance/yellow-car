@@ -8,7 +8,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Yellow Car">
 <link rel="manifest" href="manifest.json">
-<base href="/yellow-car/">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <title>Yellow Car!</title>
 <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
@@ -43,7 +42,6 @@
     position: relative;
   }
 
-  /* Animated road bg */
   .road-bg {
     position: fixed;
     inset: 0;
@@ -77,7 +75,6 @@
     padding-bottom: 1.5rem;
   }
 
-  /* ── HEADER ── */
   .header {
     padding: 1.5rem 1rem 0.5rem;
     text-align: center;
@@ -100,7 +97,6 @@
     50% { transform: rotate(4deg) translateY(-5px); }
   }
 
-  /* ── LISTEN STATUS BAR ── */
   .status-bar {
     width: calc(100% - 2rem);
     max-width: 460px;
@@ -145,7 +141,6 @@
   .status-bar.scoring .status-msg { color: var(--green); }
   .status-bar.error   .status-msg { color: #ff6b6b; }
 
-  /* ── SCOREBOARD ── */
   .scoreboard {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -229,7 +224,6 @@
     margin-top: 0.1rem;
   }
 
-  /* ── CONTROLS ── */
   .controls {
     width: calc(100% - 2rem);
     max-width: 460px;
@@ -316,21 +310,15 @@
     letter-spacing: 0.05em;
   }
 
-  /* ── WAKE WORD HINT ── */
   .wake-hint {
-    margin-top: 0.6rem;
     font-size: 0.72rem;
     font-weight: 700;
     color: var(--text-dim);
     text-align: center;
     letter-spacing: 0.04em;
   }
-  .wake-hint span {
-    color: var(--yellow);
-    font-style: italic;
-  }
+  .wake-hint span { color: var(--yellow); font-style: italic; }
 
-  /* ── CONFETTI ── */
   .confetti-layer {
     position: fixed;
     inset: 0;
@@ -351,7 +339,6 @@
     100% { opacity: 0; transform: translateY(105vh) rotate(800deg) scale(0.5); }
   }
 
-  /* ── SCORED FLASH ── */
   .score-flash {
     position: fixed;
     inset: 0;
@@ -364,7 +351,6 @@
   .score-flash.p2 { background: radial-gradient(circle, rgba(59,158,255,0.25), transparent 70%); }
   .score-flash.show { opacity: 1; }
 
-  /* ── NO SPEECH WARNING ── */
   .no-speech-msg {
     display: none;
     background: #1a1000;
@@ -441,32 +427,30 @@
 </div>
 
 <script>
-  // ── State ──────────────────────────────────────────────
   let scores = [0, 0];
   let listening = false;
   let recognition = null;
   let restartTimer = null;
-  let armed = false;         // true after wake word heard
-  let armedTimer = null;     // auto-disarm after 5s
+  let armed = false;
+  let armedTimer = null;
 
   const WAKE_WORDS = ['yellow car', 'yellow card', 'yellow ca', 'yellow ka'];
-  const ARMED_TIMEOUT = 5000; // ms to wait for name after wake word
+  const ARMED_TIMEOUT = 5000;
 
-  // ── Speech API setup ───────────────────────────────────
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   if (!SpeechRecognition) {
     document.getElementById('noSpeechMsg').classList.add('show');
     document.getElementById('listenBtn').disabled = true;
     document.getElementById('listenBtn').style.opacity = '0.4';
-    setStatus('off', 'Speech not supported — use buttons');
+    setStatus('error', 'Speech not supported — use buttons');
   } else {
     buildRecognition();
   }
 
   function buildRecognition() {
     recognition = new SpeechRecognition();
-    recognition.continuous = false;   // restart loop manually — more reliable on Android
+    recognition.continuous = false;
     recognition.interimResults = true;
     recognition.lang = 'en-GB';
     recognition.maxAlternatives = 3;
@@ -481,7 +465,6 @@
       const text = transcripts.join(' ');
 
       if (!armed) {
-        // Listening for wake word
         const woke = WAKE_WORDS.some(w => text.includes(w));
         if (woke) {
           arm();
@@ -489,32 +472,26 @@
           setStatus('wake', 'Listening… say "Yellow Car"');
         }
       } else {
-        // Armed — listening for player name
         if (e.results[e.results.length - 1].isFinal) {
           const n1 = getName(1);
           const n2 = getName(2);
           let matched = false;
 
-          if (text.includes(n1) || text.includes('player one') || text.includes('player 1') || text.includes('one') && n1.length <= 3) {
-            score(1, true);
-            matched = true;
-          } else if (text.includes(n2) || text.includes('player two') || text.includes('player 2') || text.includes('two') && n2.length <= 3) {
-            score(2, true);
-            matched = true;
+          if (text.includes(n1) || text.includes('player one') || text.includes('player 1')) {
+            score(1, true); matched = true;
+          } else if (text.includes(n2) || text.includes('player two') || text.includes('player 2')) {
+            score(2, true); matched = true;
           }
 
           if (!matched) {
-            // Heard something but no name — check if it was the wake word again
             const woke = WAKE_WORDS.some(w => text.includes(w));
-            if (woke) {
-              arm(); // re-arm
-            } else {
+            if (woke) { arm(); }
+            else {
               disarm();
               setStatus('wake', 'Didn\'t catch who — say "Yellow Car" again');
             }
           }
         } else {
-          // interim while armed — show what's heard
           setStatus('armed', `Heard: "${transcripts[0]}"…`);
         }
       }
@@ -522,13 +499,12 @@
 
     recognition.onerror = (e) => {
       if (e.error === 'no-speech') {
-        // Normal — just restart
+        // Expected silence — loop restarts automatically
       } else if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
         listening = false;
         setListenBtn(false);
-        setStatus('error', 'Mic permission denied');
+        setStatus('error', 'Mic permission denied — check browser settings');
         document.getElementById('noSpeechMsg').classList.add('show');
-        return;
       } else if (e.error === 'network') {
         setStatus('error', 'Network error — retrying…');
       }
@@ -536,10 +512,9 @@
 
     recognition.onend = () => {
       if (listening) {
-        // Restart immediately — this is the continuous loop
         restartTimer = setTimeout(() => {
-          try { recognition.start(); } catch(e) {}
-        }, 120);
+          try { recognition.start(); } catch(err) {}
+        }, 150);
       }
     };
   }
@@ -548,7 +523,6 @@
     armed = true;
     clearTimeout(armedTimer);
     setStatus('armed', '🟡 "Yellow Car!" — who got it?');
-    // Auto-disarm if no name heard within timeout
     armedTimer = setTimeout(() => {
       if (armed) {
         disarm();
@@ -562,7 +536,6 @@
     clearTimeout(armedTimer);
   }
 
-  // ── Toggle listen ──────────────────────────────────────
   function toggleListen() {
     if (!SpeechRecognition) return;
     listening = !listening;
@@ -572,6 +545,7 @@
       armed = false;
       setStatus('wake', 'Listening… say "Yellow Car"');
       try { recognition.start(); } catch(e) {}
+      requestWakeLock();
     } else {
       clearTimeout(restartTimer);
       clearTimeout(armedTimer);
@@ -582,36 +556,27 @@
   }
 
   function setListenBtn(on) {
-    const btn = document.getElementById('listenBtn');
-    const icon = document.getElementById('listenIcon');
-    const label = document.getElementById('listenLabel');
-    btn.className = 'listen-toggle ' + (on ? 'on' : 'off');
-    icon.textContent = on ? '⏹️' : '🎤';
-    label.textContent = on ? 'STOP LISTENING' : 'START LISTENING';
+    document.getElementById('listenBtn').className = 'listen-toggle ' + (on ? 'on' : 'off');
+    document.getElementById('listenIcon').textContent = on ? '⏹️' : '🎤';
+    document.getElementById('listenLabel').textContent = on ? 'STOP LISTENING' : 'START LISTENING';
   }
 
-  // ── Scoring ────────────────────────────────────────────
   function score(player, fromVoice = false) {
     disarm();
     scores[player - 1]++;
-
     document.getElementById(`score${player}`).textContent = scores[player - 1];
 
-    // Card pop
     const card = document.getElementById(`card${player}`);
     card.classList.remove('pop');
     void card.offsetWidth;
     card.classList.add('pop');
 
-    // Flash
     const flash = document.getElementById('flash');
     flash.className = `score-flash p${player} show`;
     setTimeout(() => flash.classList.remove('show'), 300);
 
-    const name = getName(player);
-
     if (fromVoice) {
-      setStatus('scoring', `🚗 ${name} got one! +1 point`);
+      setStatus('scoring', `🚗 ${getName(player)} got one! +1 point`);
       setTimeout(() => {
         if (listening) setStatus('wake', 'Listening… say "Yellow Car"');
       }, 2000);
@@ -619,19 +584,11 @@
 
     updateLeaders();
     spawnConfetti(player);
-
-    // Re-arm recognition after scoring
-    if (listening && fromVoice) {
-      setTimeout(() => {
-        if (listening && !armed) setStatus('wake', 'Listening… say "Yellow Car"');
-      }, 2200);
-    }
   }
 
   function updateLeaders() {
-    const [s1, s2] = scores;
-    document.getElementById('crown1').classList.toggle('visible', s1 > s2);
-    document.getElementById('crown2').classList.toggle('visible', s2 > s1);
+    document.getElementById('crown1').classList.toggle('visible', scores[0] > scores[1]);
+    document.getElementById('crown2').classList.toggle('visible', scores[1] > scores[0]);
   }
 
   function resetScores() {
@@ -640,22 +597,14 @@
     document.getElementById('score2').textContent = '0';
     document.getElementById('crown1').classList.remove('visible');
     document.getElementById('crown2').classList.remove('visible');
-    if (listening) {
-      setStatus('wake', 'Scores reset! Listening… say "Yellow Car"');
-    } else {
-      setStatus('off', 'Scores reset');
-    }
+    setStatus(listening ? 'wake' : 'off', listening ? 'Scores reset! Listening… say "Yellow Car"' : 'Scores reset');
   }
 
-  // ── Status helper ──────────────────────────────────────
   function setStatus(state, msg) {
-    const bar = document.getElementById('statusBar');
-    const txt = document.getElementById('statusMsg');
-    bar.className = 'status-bar ' + state;
-    txt.textContent = msg;
+    document.getElementById('statusBar').className = 'status-bar ' + state;
+    document.getElementById('statusMsg').textContent = msg;
   }
 
-  // ── Name helpers ───────────────────────────────────────
   function getName(player) {
     return document.getElementById(`name${player}`).textContent.toLowerCase().trim();
   }
@@ -673,37 +622,35 @@
     });
   });
 
-  // ── Confetti ───────────────────────────────────────────
   function spawnConfetti(player) {
     const layer = document.getElementById('confetti');
     const colors = player === 1
       ? ['#FF4D6D','#FF8FA3','#FFE000','#fff']
       : ['#3B9EFF','#74C0FC','#FFE000','#fff'];
-
     for (let i = 0; i < 28; i++) {
       const el = document.createElement('div');
       el.className = 'c';
       const size = 6 + Math.random() * 9;
       el.style.cssText = `
-        left: ${10 + Math.random() * 80}%;
-        width: ${size}px;
-        height: ${size * (Math.random() > 0.5 ? 1 : 2.5)}px;
-        background: ${colors[Math.floor(Math.random() * colors.length)]};
-        border-radius: ${Math.random() > 0.4 ? '50%' : '2px'};
-        animation-delay: ${Math.random() * 0.3}s;
-        animation-duration: ${0.9 + Math.random() * 0.7}s;
+        left:${10+Math.random()*80}%;
+        width:${size}px;
+        height:${size*(Math.random()>0.5?1:2.5)}px;
+        background:${colors[Math.floor(Math.random()*colors.length)]};
+        border-radius:${Math.random()>0.4?'50%':'2px'};
+        animation-delay:${Math.random()*0.3}s;
+        animation-duration:${0.9+Math.random()*0.7}s;
       `;
       layer.appendChild(el);
       setTimeout(() => el.remove(), 1800);
     }
   }
 
-  // ── Service Worker ─────────────────────────────────────
+  // SW scoped to /yellow-car/ for GitHub Pages
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.register('/yellow-car/sw.js', { scope: '/yellow-car/' }).catch(() => {});
   }
 
-  // ── Keep screen awake (Wake Lock API) ──────────────────
+  // Wake Lock — keep screen on while listening
   let wakeLock = null;
   async function requestWakeLock() {
     try {
@@ -713,12 +660,7 @@
     } catch(e) {}
   }
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && listening) {
-      requestWakeLock();
-    }
-  });
-  document.getElementById('listenBtn').addEventListener('click', () => {
-    if (listening) requestWakeLock();
+    if (document.visibilityState === 'visible' && listening) requestWakeLock();
   });
 </script>
 </body>
