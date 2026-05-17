@@ -16,7 +16,6 @@
 
   :root {
     --yellow: #FFE000;
-    --yellow-dark: #D4B800;
     --black: #0f0f0f;
     --surface: #181818;
     --surface2: #242424;
@@ -73,11 +72,18 @@
     align-items: center;
     flex: 1;
     padding-bottom: 1.5rem;
+    transition: padding-top 0.4s;
   }
 
+  /* Header shrinks when listening */
   .header {
-    padding: 1.5rem 1rem 0.5rem;
+    padding: 1.2rem 1rem 0.3rem;
     text-align: center;
+    transition: all 0.4s;
+    overflow: hidden;
+  }
+  .listening-active .header {
+    padding: 0.5rem 1rem 0.1rem;
   }
   .title {
     font-family: 'Bangers', cursive;
@@ -86,21 +92,30 @@
     letter-spacing: 0.06em;
     line-height: 1;
     text-shadow: 3px 3px 0 #000, 0 0 30px rgba(255,224,0,0.3);
+    transition: font-size 0.4s;
+  }
+  .listening-active .title {
+    font-size: clamp(1.6rem, 6vw, 2.8rem);
   }
   .car-icon {
     font-size: clamp(1.8rem, 7vw, 3rem);
     display: inline-block;
     animation: carwiggle 3s ease-in-out infinite;
+    transition: font-size 0.4s;
+  }
+  .listening-active .car-icon {
+    font-size: clamp(1rem, 4vw, 1.8rem);
   }
   @keyframes carwiggle {
     0%,100% { transform: rotate(-4deg) translateY(0); }
     50% { transform: rotate(4deg) translateY(-5px); }
   }
 
+  /* Status bar */
   .status-bar {
     width: calc(100% - 2rem);
     max-width: 460px;
-    margin: 0.8rem 0 0;
+    margin: 0.5rem 0 0;
     background: var(--surface);
     border-radius: 14px;
     padding: 0.7rem 1rem;
@@ -108,11 +123,15 @@
     align-items: center;
     gap: 0.7rem;
     border: 1px solid #2a2a2a;
-    transition: border-color 0.3s, background 0.3s;
+    transition: border-color 0.3s, background 0.3s, transform 0.4s;
+  }
+  /* When listening, status bar is more prominent */
+  .listening-active .status-bar {
+    margin-top: 0.4rem;
   }
   .status-bar.wake    { border-color: #333; }
-  .status-bar.armed   { border-color: var(--yellow); background: rgba(255,224,0,0.06); }
-  .status-bar.scoring { border-color: var(--green);  background: rgba(74,222,128,0.06); }
+  .status-bar.armed   { border-color: var(--yellow); background: rgba(255,224,0,0.08); }
+  .status-bar.scoring { border-color: var(--green);  background: rgba(74,222,128,0.08); }
   .status-bar.error   { border-color: #ff6b6b; background: rgba(255,100,100,0.06); }
   .status-bar.off     { border-color: #2a2a2a; opacity: 0.6; }
 
@@ -141,13 +160,15 @@
   .status-bar.scoring .status-msg { color: var(--green); }
   .status-bar.error   .status-msg { color: #ff6b6b; }
 
+  /* Scoreboard */
   .scoreboard {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0.75rem;
     width: calc(100% - 2rem);
     max-width: 460px;
-    margin: 0.9rem 0 0;
+    margin: 0.7rem 0 0;
+    transition: margin 0.4s;
   }
 
   .player-card {
@@ -162,7 +183,6 @@
   }
   .player-card.p1 { border-color: var(--p1); }
   .player-card.p2 { border-color: var(--p2); }
-
   .player-card::before {
     content: '';
     position: absolute;
@@ -171,7 +191,6 @@
   }
   .player-card.p1::before { background: radial-gradient(circle at 50% 0%, var(--p1), transparent 70%); }
   .player-card.p2::before { background: radial-gradient(circle at 50% 0%, var(--p2), transparent 70%); }
-
   .player-card.pop {
     animation: card-pop 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards;
   }
@@ -197,15 +216,27 @@
     letter-spacing: 0.12em;
     text-transform: uppercase;
     margin-bottom: 0.25rem;
-    outline: none;
-    cursor: text;
-    border-bottom: 1px dashed transparent;
-    transition: border-color 0.2s;
     display: inline-block;
+    color: inherit;
   }
-  .p-name:focus { border-color: currentColor; }
   .player-card.p1 .p-name { color: var(--p1); }
   .player-card.p2 .p-name { color: var(--p2); }
+
+  /* Edit button on each card */
+  .edit-name-btn {
+    position: absolute;
+    top: 7px; left: 9px;
+    background: none;
+    border: none;
+    font-size: 0.75rem;
+    cursor: pointer;
+    opacity: 0.35;
+    padding: 2px;
+    line-height: 1;
+    transition: opacity 0.2s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .edit-name-btn:active { opacity: 1; }
 
   .score-num {
     font-family: 'Bangers', cursive;
@@ -214,7 +245,6 @@
     color: #fff;
     text-shadow: 2px 2px 0 rgba(0,0,0,0.4);
   }
-
   .score-sub {
     font-size: 0.65rem;
     font-weight: 700;
@@ -224,10 +254,11 @@
     margin-top: 0.1rem;
   }
 
+  /* Controls */
   .controls {
     width: calc(100% - 2rem);
     max-width: 460px;
-    margin-top: 0.9rem;
+    margin-top: 0.8rem;
     display: flex;
     flex-direction: column;
     gap: 0.65rem;
@@ -247,12 +278,21 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    transition: transform 0.12s, opacity 0.12s, background 0.3s;
+    transition: transform 0.12s, background 0.3s;
     -webkit-tap-highlight-color: transparent;
   }
   .listen-toggle:active { transform: scale(0.97); }
   .listen-toggle.on  { background: var(--yellow); color: var(--black); }
   .listen-toggle.off { background: var(--surface2); color: #888; border: 1px solid #333; }
+
+  .wake-hint {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-align: center;
+    letter-spacing: 0.04em;
+  }
+  .wake-hint span { color: var(--yellow); font-style: italic; }
 
   .manual-row {
     display: grid;
@@ -278,15 +318,8 @@
   .manual-btn.p1 { background: var(--p1); }
   .manual-btn.p2 { background: var(--p2); }
 
-  .bottom-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
   .reset-btn {
-    flex: 1;
+    width: 100%;
     padding: 0.65rem;
     border-radius: 12px;
     background: transparent;
@@ -299,54 +332,20 @@
     text-transform: uppercase;
     cursor: pointer;
     transition: border-color 0.2s, color 0.2s;
+    -webkit-tap-highlight-color: transparent;
   }
-  .reset-btn:hover { border-color: #666; color: #999; }
+  .reset-btn:active { border-color: #888; color: #aaa; }
 
-  .edit-hint {
-    font-size: 0.65rem;
-    color: var(--text-dim);
-    text-align: center;
-    padding-top: 0.2rem;
-    letter-spacing: 0.05em;
-  }
-
-  .wake-hint {
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: var(--text-dim);
-    text-align: center;
-    letter-spacing: 0.04em;
-  }
-  .wake-hint span { color: var(--yellow); font-style: italic; }
-
-  .confetti-layer {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 999;
-    overflow: hidden;
-  }
-  .c {
-    position: absolute;
-    top: -12px;
-    opacity: 0;
-    border-radius: 2px;
-    animation: fall linear forwards;
-  }
+  /* Confetti */
+  .confetti-layer { position: fixed; inset: 0; pointer-events: none; z-index: 999; overflow: hidden; }
+  .c { position: absolute; top: -12px; opacity: 0; border-radius: 2px; animation: fall linear forwards; }
   @keyframes fall {
     0%   { opacity: 1; transform: translateY(0) rotate(0deg) scale(1); }
     80%  { opacity: 1; }
     100% { opacity: 0; transform: translateY(105vh) rotate(800deg) scale(0.5); }
   }
 
-  .score-flash {
-    position: fixed;
-    inset: 0;
-    z-index: 998;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.1s;
-  }
+  .score-flash { position: fixed; inset: 0; z-index: 998; pointer-events: none; opacity: 0; transition: opacity 0.1s; }
   .score-flash.p1 { background: radial-gradient(circle, rgba(255,77,109,0.25), transparent 70%); }
   .score-flash.p2 { background: radial-gradient(circle, rgba(59,158,255,0.25), transparent 70%); }
   .score-flash.show { opacity: 1; }
@@ -375,7 +374,7 @@
 <div class="score-flash" id="flash"></div>
 <div class="confetti-layer" id="confetti"></div>
 
-<div class="content">
+<div class="content" id="mainContent">
   <div class="header">
     <div><span class="car-icon">🚗</span></div>
     <div class="title">YELLOW CAR!</div>
@@ -393,19 +392,19 @@
   <div class="scoreboard">
     <div class="player-card p1" id="card1">
       <span class="crown" id="crown1">👑</span>
-      <div class="p-name p1" id="name1" contenteditable="true" spellcheck="false">Dad</div>
+      <button class="edit-name-btn" onclick="editName(1)" title="Edit name">✏️</button>
+      <div class="p-name p1" id="name1">Dad</div>
       <div class="score-num" id="score1">0</div>
       <div class="score-sub">Points</div>
     </div>
     <div class="player-card p2" id="card2">
       <span class="crown" id="crown2">👑</span>
-      <div class="p-name p2" id="name2" contenteditable="true" spellcheck="false">Son</div>
+      <button class="edit-name-btn" onclick="editName(2)" title="Edit name">✏️</button>
+      <div class="p-name p2" id="name2">Son</div>
       <div class="score-num" id="score2">0</div>
       <div class="score-sub">Points</div>
     </div>
   </div>
-
-  <p class="edit-hint">✏️ Tap names to edit</p>
 
   <div class="controls">
     <button class="listen-toggle off" id="listenBtn" onclick="toggleListen()">
@@ -420,13 +419,12 @@
       <button class="manual-btn p2" onclick="score(2)">+1 <span id="mName2">Son</span></button>
     </div>
 
-    <div class="bottom-row">
-      <button class="reset-btn" onclick="resetScores()">🔄 Reset Scores</button>
-    </div>
+    <button class="reset-btn" onclick="resetScores()">🔄 Reset Scores</button>
   </div>
 </div>
 
 <script>
+
   let scores = [0, 0];
   let listening = false;
   let recognition = null;
@@ -553,8 +551,10 @@
     listening = !listening;
     setListenBtn(listening);
 
+    const content = document.getElementById('mainContent');
     if (listening) {
       armed = false;
+      content.classList.add('listening-active');
       setStatus('wake', 'Listening… say "Yellow Car"');
       try { recognition.start(); } catch(e) {}
       requestWakeLock();
@@ -562,6 +562,7 @@
       clearTimeout(restartTimer);
       clearTimeout(armedTimer);
       armed = false;
+      content.classList.remove('listening-active');
       try { recognition.stop(); } catch(e) {}
       setStatus('off', 'Listening is off');
     }
@@ -638,26 +639,15 @@
     return dp[m][n];
   }
 
-  document.getElementById('name1').addEventListener('input', syncManualNames);
-  document.getElementById('name2').addEventListener('input', syncManualNames);
-  ['name1','name2'].forEach(id => {
-    const el = document.getElementById(id);
-    // On mobile, contenteditable needs an explicit focus trigger
-    el.addEventListener('touchend', (e) => {
-      e.preventDefault();
-      el.focus();
-      // Place cursor at end
-      const range = document.createRange();
-      const sel = window.getSelection();
-      range.selectNodeContents(el);
-      range.collapse(false);
-      sel.removeAllRanges();
-      sel.addRange(range);
-    });
-    el.addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
-    });
-  });
+  function editName(player) {
+    const current = document.getElementById('name' + player).textContent.trim();
+    const val = prompt('Enter name for Player ' + player + ':', current);
+    if (val && val.trim()) {
+      const name = val.trim();
+      document.getElementById('name' + player).textContent = name;
+      document.getElementById('mName' + player).textContent = name;
+    }
+  }
 
   function spawnConfetti(player) {
     const layer = document.getElementById('confetti');
@@ -699,6 +689,7 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && listening) requestWakeLock();
   });
+
 </script>
 </body>
 </html>
