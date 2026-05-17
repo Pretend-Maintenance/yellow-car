@@ -477,10 +477,22 @@
           const n2 = getName(2);
           let matched = false;
 
-          if (text.includes(n1) || text.includes('player one') || text.includes('player 1')) {
-            score(1, true); matched = true;
-          } else if (text.includes(n2) || text.includes('player two') || text.includes('player 2')) {
-            score(2, true); matched = true;
+          function fuzzyMatch(haystack, name) {
+            if (!name || name.length < 2) return false;
+            if (haystack.includes(name)) return true;
+            return haystack.split(/\s+/).some(w =>
+              w.length >= 2 && levenshtein(w, name) <= Math.max(1, Math.floor(name.length / 4))
+            );
+          }
+
+          const p1 = fuzzyMatch(text, n1) || text.includes('player one') || text.includes('player 1');
+          const p2 = fuzzyMatch(text, n2) || text.includes('player two') || text.includes('player 2');
+
+          if (p1 && !p2) { score(1, true); matched = true; }
+          else if (p2 && !p1) { score(2, true); matched = true; }
+          else if (p1 && p2) {
+            score(levenshtein(text, n1) <= levenshtein(text, n2) ? 1 : 2, true);
+            matched = true;
           }
 
           if (!matched) {
@@ -488,7 +500,7 @@
             if (woke) { arm(); }
             else {
               disarm();
-              setStatus('wake', 'Didn\'t catch who — say "Yellow Car" again');
+              setStatus('wake', `Heard "${transcripts[0]}" — say "Yellow Car" to try again`);
             }
           }
         } else {
@@ -614,11 +626,36 @@
     document.getElementById('mName2').textContent = document.getElementById('name2').textContent;
   }
 
+  // Levenshtein distance for fuzzy name matching
+  function levenshtein(a, b) {
+    const m = a.length, n = b.length;
+    const dp = Array.from({length: m+1}, (_, i) => [i, ...Array(n).fill(0)]);
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++)
+      for (let j = 1; j <= n; j++)
+        dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1]
+          : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+    return dp[m][n];
+  }
+
   document.getElementById('name1').addEventListener('input', syncManualNames);
   document.getElementById('name2').addEventListener('input', syncManualNames);
   ['name1','name2'].forEach(id => {
-    document.getElementById(id).addEventListener('keydown', e => {
-      if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
+    const el = document.getElementById(id);
+    // On mobile, contenteditable needs an explicit focus trigger
+    el.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      el.focus();
+      // Place cursor at end
+      const range = document.createRange();
+      const sel = window.getSelection();
+      range.selectNodeContents(el);
+      range.collapse(false);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    });
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
     });
   });
 
