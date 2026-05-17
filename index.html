@@ -487,7 +487,7 @@
       <span id="listenLabel">START LISTENING</span>
     </button>
 
-    <div class="wake-hint">Say <span>"Yellow Car"</span> then the player's name</div>
+    <div class="wake-hint">Say <span>"Yellow Car"</span> then the player's name<br><span style="font-size:0.65rem;color:var(--text-dim);font-style:normal">For short names say <span style="color:var(--yellow)">"it's Ben"</span> or <span style="color:var(--yellow)">"for Ben"</span></span></div>
 
     <div class="manual-row">
       <button class="manual-btn p1" onclick="score(1)">+1 <span id="mName1">Daddy</span></button>
@@ -595,8 +595,13 @@
             return false;
           }
 
-          const p1 = fuzzyMatch(text, n1) || text.includes('player one') || text.includes('player 1');
-          const p2 = fuzzyMatch(text, n2) || text.includes('player two') || text.includes('player 2');
+          // Strip common lead-in phrases so "it's Ben" → "ben", "for Daddy" → "daddy"
+          const PREFIXES = ["it's ", "its ", "for ", "it was ", "that's ", "thats ", "give it to "];
+          let cleanText = text;
+          PREFIXES.forEach(p => { if (cleanText.startsWith(p)) cleanText = cleanText.slice(p.length).trim(); });
+          // Also check the cleaned version alongside the full text
+          const p1 = fuzzyMatch(text, n1) || fuzzyMatch(cleanText, n1) || text.includes('player one') || text.includes('player 1');
+          const p2 = fuzzyMatch(text, n2) || fuzzyMatch(cleanText, n2) || text.includes('player two') || text.includes('player 2');
 
           if (p1 && !p2) { score(1, true); matched = true; }
           else if (p2 && !p1) { score(2, true); matched = true; }
