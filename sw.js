@@ -1,4 +1,4 @@
-const CACHE = 'yellowcar-v5';
+const CACHE = 'yellowcar-v6';
 const BASE = '/yellow-car';
 const ASSETS = [
   BASE + '/',

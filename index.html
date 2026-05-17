@@ -560,22 +560,39 @@
           const n2 = getName(2);
           let matched = false;
 
+          // Always show exactly what was heard — helps debug misses
+          setStatus('armed', `Heard: "${transcripts[0]}" — who?`);
+
           function fuzzyMatch(haystack, name) {
             if (!name || name.length < 2) return false;
             if (haystack.includes(name)) return true;
-            // Short names (<=4 chars like "Ben", "Dad", "Son") get 1 edit distance
-            // Longer names get proportionally more tolerance
-            const tolerance = name.length <= 4 ? 1 : Math.floor(name.length / 3);
-            // Also check phonetic-ish common mishears for very short names
-            const MISHEARS = { 'ben': ['been','bin','band','pen','when','bean','bend','bet','bed'],
-                               'dad': ['bad','had','mad','add'], 'son': ['sun','some','done','one'],
-                               'mum': ['mam','mom','bum'], 'tom': ['top','too'],
-                               'sam': ['some','sum'] };
+
+            // Phonetic mishear tables — tuned for UK English speech recognition
+            const MISHEARS = {
+              'ben':   ['been','bin','band','pen','when','bean','bend','bet','bed',
+                        'men','ten','den','hen','yen','ken','fen','bun','ban','bone',
+                        'barn','burn','born','vein','vain','then','them','end','and',
+                        'friend','blend','spend','trend','bent','dent','rent','sent',
+                        'went','lent','meant','bland','blank','blank','blend','in','on'],
+              'daddy': ['daddy','dadi','dadie','deadie','teddy','ready','lady'],
+              'dad':   ['bad','had','mad','add','lad'],
+            };
+
             const mishearList = MISHEARS[name] || [];
             if (mishearList.some(m => haystack.includes(m))) return true;
-            return haystack.split(/\s+/).some(w =>
-              w.length >= 2 && levenshtein(w, name) <= tolerance
-            );
+
+            // Levenshtein per word — short names get distance 1, longer get more
+            const tolerance = name.length <= 3 ? 1 : name.length <= 5 ? 2 : Math.floor(name.length / 3);
+            if (haystack.split(/\s+/).some(w => w.length >= 2 && levenshtein(w, name) <= tolerance)) return true;
+
+            // Last resort: does any word START with the same 2 chars?
+            // Catches "ben" → "bend", "benz", "bent" etc where SR adds a char
+            if (name.length >= 3) {
+              const prefix = name.slice(0, 2);
+              if (haystack.split(/\s+/).some(w => w.startsWith(prefix) && levenshtein(w, name) <= 2)) return true;
+            }
+
+            return false;
           }
 
           const p1 = fuzzyMatch(text, n1) || text.includes('player one') || text.includes('player 1');
@@ -593,7 +610,11 @@
             if (woke) { arm(); }
             else {
               disarm();
-              setStatus('wake', `Heard "${transcripts[0]}" — say "Yellow Car" to try again`);
+              // Keep showing what was heard so you can see why it missed
+              setStatus('error', `Heard "${transcripts[0]}" — say "Yellow Car" to retry`);
+              setTimeout(() => {
+                if (listening && !armed) setStatus('wake', 'Listening… say "Yellow Car"');
+              }, 3000);
             }
           }
         } else {
