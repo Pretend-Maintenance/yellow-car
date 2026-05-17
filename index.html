@@ -348,6 +348,7 @@
   .score-flash { position: fixed; inset: 0; z-index: 998; pointer-events: none; opacity: 0; transition: opacity 0.1s; }
   .score-flash.p1 { background: radial-gradient(circle, rgba(255,77,109,0.25), transparent 70%); }
   .score-flash.p2 { background: radial-gradient(circle, rgba(59,158,255,0.25), transparent 70%); }
+  .score-flash.wake { background: radial-gradient(circle, rgba(255,224,0,0.35), transparent 70%); }
   .score-flash.show { opacity: 1; }
 
   .no-speech-msg {
@@ -467,14 +468,14 @@
     <div class="player-card p1" id="card1">
       <span class="crown" id="crown1">👑</span>
       <button class="edit-name-btn" onclick="editName(1)" title="Edit name">✏️</button>
-      <div class="p-name p1" id="name1">Dad</div>
+      <div class="p-name p1" id="name1">Daddy</div>
       <div class="score-num" id="score1">0</div>
       <div class="score-sub">Points</div>
     </div>
     <div class="player-card p2" id="card2">
       <span class="crown" id="crown2">👑</span>
       <button class="edit-name-btn" onclick="editName(2)" title="Edit name">✏️</button>
-      <div class="p-name p2" id="name2">Son</div>
+      <div class="p-name p2" id="name2">Ben</div>
       <div class="score-num" id="score2">0</div>
       <div class="score-sub">Points</div>
     </div>
@@ -489,8 +490,8 @@
     <div class="wake-hint">Say <span>"Yellow Car"</span> then the player's name</div>
 
     <div class="manual-row">
-      <button class="manual-btn p1" onclick="score(1)">+1 <span id="mName1">Dad</span></button>
-      <button class="manual-btn p2" onclick="score(2)">+1 <span id="mName2">Son</span></button>
+      <button class="manual-btn p1" onclick="score(1)">+1 <span id="mName1">Daddy</span></button>
+      <button class="manual-btn p2" onclick="score(2)">+1 <span id="mName2">Ben</span></button>
     </div>
 
     <button class="reset-btn" onclick="resetScores()">🔄 Reset Scores</button>
@@ -626,6 +627,10 @@
   function arm() {
     armed = true;
     clearTimeout(armedTimer);
+    playWakePing();
+    const wakeFlash = document.getElementById('flash');
+    wakeFlash.className = 'score-flash wake show';
+    setTimeout(() => wakeFlash.classList.remove('show'), 400);
     setStatus('armed', '🟡 "Yellow Car!" — who got it?');
     armedTimer = setTimeout(() => {
       if (armed) {
@@ -695,6 +700,8 @@
     spawnConfetti(player);
     playScoreSound();
     addHistory(player, name);
+    // Haptic feedback
+    try { navigator.vibrate && navigator.vibrate([80, 40, 120]); } catch(e) {}
   }
 
   function updateLeaders() {
@@ -746,19 +753,51 @@
       const name = val.trim();
       document.getElementById('name' + player).textContent = name;
       document.getElementById('mName' + player).textContent = name;
+      try { localStorage.setItem('yc_name' + player, name); } catch(e) {}
     }
   }
 
-  // ── Sound notification ───────────────────────────────────────────────────
+  // Load saved names on startup
+  function loadSavedNames() {
+    try {
+      const n1 = localStorage.getItem('yc_name1');
+      const n2 = localStorage.getItem('yc_name2');
+      if (n1) { document.getElementById('name1').textContent = n1; document.getElementById('mName1').textContent = n1; }
+      if (n2) { document.getElementById('name2').textContent = n2; document.getElementById('mName2').textContent = n2; }
+    } catch(e) {}
+  }
+  loadSavedNames();
+
+  // ── Sound notifications ──────────────────────────────────────────────────
+  function getAudioCtx() {
+    return new (window.AudioContext || window.webkitAudioContext)();
+  }
+
+  // Short single ping when wake word "Yellow Car" is heard
+  function playWakePing() {
+    try {
+      const ctx = getAudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.2);
+    } catch(e) {}
+  }
+
+  // Ascending three-note fanfare when a point is scored
   function playScoreSound() {
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      // Two-tone "ding" — cheerful car-horn-ish
-      [[523, 0, 0.12], [659, 0.1, 0.18], [784, 0.22, 0.28]].forEach(([freq, start, end]) => {
+      const ctx = getAudioCtx();
+      [[523, 0, 0.12], [659, 0.1, 0.18], [784, 0.22, 0.32]].forEach(([freq, start, end]) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
+        osc.connect(gain); gain.connect(ctx.destination);
         osc.frequency.value = freq;
         osc.type = 'sine';
         gain.gain.setValueAtTime(0, ctx.currentTime + start);
@@ -795,13 +834,21 @@
     history.forEach((entry, i) => {
       const div = document.createElement('div');
       div.className = `history-item p${entry.player}`;
-      // Time since spotted
       const secsAgo = Math.floor((Date.now() - entry.ts) / 1000);
-      const ago = secsAgo < 60 ? `${secsAgo}s ago` : `${Math.floor(secsAgo/60)}m ago`;
+      const ago = secsAgo < 60 ? `${secsAgo}s ago` : `${Math.floor(secsAgo/60)}m${secsAgo%60 > 0 ? ' ' + (secsAgo%60) + 's' : ''} ago`;
+      // Gap since previous car
+      let gapStr = '';
+      if (i < history.length - 1) {
+        const gapSecs = Math.floor((entry.ts - history[i+1].ts) / 1000);
+        if (gapSecs >= 5) {
+          const gapMin = Math.floor(gapSecs / 60);
+          gapStr = gapMin > 0 ? ` +${gapMin}m${gapSecs%60 > 0 ? (gapSecs%60)+'s' : ''}` : ` +${gapSecs}s`;
+        }
+      }
       div.innerHTML = `
         <span class="history-car">🚗</span>
-        <span class="history-name p${entry.player}c">${entry.name}</span>
-        <span class="history-time">${entry.time} &nbsp;·&nbsp; ${ago}</span>
+        <span class="history-name p${entry.player}c">${entry.name}${gapStr ? '<span style="color:var(--text-dim);font-size:0.65rem;font-weight:700"> ' + gapStr + '</span>' : ''}</span>
+        <span class="history-time">${entry.time}<br><span style="font-size:0.62rem;color:var(--text-dim)">${ago}</span></span>
       `;
       list.appendChild(div);
     });
