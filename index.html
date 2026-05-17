@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#FFE000">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Yellow Car">
+<link rel="manifest" href="manifest.json">
+<base href="/yellow-car/">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>Yellow Car!</title>
+<link href="https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --yellow: #FFE000;
+    --yellow-dark: #D4B800;
+    --black: #0f0f0f;
+    --surface: #181818;
+    --surface2: #242424;
+    --p1: #FF4D6D;
+    --p2: #3B9EFF;
+    --green: #4ade80;
+    --text-dim: #555;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--black);
+    font-family: 'Nunito', sans-serif;
+    color: #fff;
+    overflow-x: hidden;
+    overscroll-behavior: none;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+    position: relative;
+  }
+
+  /* Animated road bg */
+  .road-bg {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 0;
+  }
+  .road-bg::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0; bottom: 0;
+    width: 6px;
+    transform: translateX(-50%);
+    background: repeating-linear-gradient(
+      to bottom,
+      rgba(255,224,0,0.12) 0, rgba(255,224,0,0.12) 40px,
+      transparent 40px, transparent 80px
+    );
+    animation: road 1.2s linear infinite;
+  }
+  @keyframes road { to { background-position: 0 80px; } }
+
+  .content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    padding-bottom: 1.5rem;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    padding: 1.5rem 1rem 0.5rem;
+    text-align: center;
+  }
+  .title {
+    font-family: 'Bangers', cursive;
+    font-size: clamp(2.8rem, 11vw, 5rem);
+    color: var(--yellow);
+    letter-spacing: 0.06em;
+    line-height: 1;
+    text-shadow: 3px 3px 0 #000, 0 0 30px rgba(255,224,0,0.3);
+  }
+  .car-icon {
+    font-size: clamp(1.8rem, 7vw, 3rem);
+    display: inline-block;
+    animation: carwiggle 3s ease-in-out infinite;
+  }
+  @keyframes carwiggle {
+    0%,100% { transform: rotate(-4deg) translateY(0); }
+    50% { transform: rotate(4deg) translateY(-5px); }
+  }
+
+  /* ── LISTEN STATUS BAR ── */
+  .status-bar {
+    width: calc(100% - 2rem);
+    max-width: 460px;
+    margin: 0.8rem 0 0;
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 0.7rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    border: 1px solid #2a2a2a;
+    transition: border-color 0.3s, background 0.3s;
+  }
+  .status-bar.wake    { border-color: #333; }
+  .status-bar.armed   { border-color: var(--yellow); background: rgba(255,224,0,0.06); }
+  .status-bar.scoring { border-color: var(--green);  background: rgba(74,222,128,0.06); }
+  .status-bar.error   { border-color: #ff6b6b; background: rgba(255,100,100,0.06); }
+  .status-bar.off     { border-color: #2a2a2a; opacity: 0.6; }
+
+  .pulse-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--text-dim);
+    transition: background 0.3s;
+  }
+  .status-bar.wake    .pulse-dot { background: var(--green); animation: blink 1.4s ease-in-out infinite; }
+  .status-bar.armed   .pulse-dot { background: var(--yellow); animation: blink 0.6s ease-in-out infinite; }
+  .status-bar.scoring .pulse-dot { background: var(--green); animation: none; }
+  .status-bar.error   .pulse-dot { background: #ff6b6b; animation: none; }
+  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0.2; } }
+
+  .status-msg {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #aaa;
+    transition: color 0.3s;
+    flex: 1;
+  }
+  .status-bar.wake    .status-msg { color: #aaa; }
+  .status-bar.armed   .status-msg { color: var(--yellow); }
+  .status-bar.scoring .status-msg { color: var(--green); }
+  .status-bar.error   .status-msg { color: #ff6b6b; }
+
+  /* ── SCOREBOARD ── */
+  .scoreboard {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    width: calc(100% - 2rem);
+    max-width: 460px;
+    margin: 0.9rem 0 0;
+  }
+
+  .player-card {
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 1.1rem 0.8rem 1rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    border: 2.5px solid var(--surface2);
+    transition: border-color 0.3s;
+  }
+  .player-card.p1 { border-color: var(--p1); }
+  .player-card.p2 { border-color: var(--p2); }
+
+  .player-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0.07;
+  }
+  .player-card.p1::before { background: radial-gradient(circle at 50% 0%, var(--p1), transparent 70%); }
+  .player-card.p2::before { background: radial-gradient(circle at 50% 0%, var(--p2), transparent 70%); }
+
+  .player-card.pop {
+    animation: card-pop 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards;
+  }
+  @keyframes card-pop {
+    0%   { transform: scale(1); }
+    45%  { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+
+  .crown {
+    position: absolute;
+    top: 7px; right: 9px;
+    font-size: 1rem;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.3s, transform 0.3s;
+  }
+  .crown.visible { opacity: 1; transform: translateY(0); }
+
+  .p-name {
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+    outline: none;
+    cursor: text;
+    border-bottom: 1px dashed transparent;
+    transition: border-color 0.2s;
+    display: inline-block;
+  }
+  .p-name:focus { border-color: currentColor; }
+  .player-card.p1 .p-name { color: var(--p1); }
+  .player-card.p2 .p-name { color: var(--p2); }
+
+  .score-num {
+    font-family: 'Bangers', cursive;
+    font-size: clamp(3.8rem, 14vw, 5.5rem);
+    line-height: 1;
+    color: #fff;
+    text-shadow: 2px 2px 0 rgba(0,0,0,0.4);
+  }
+
+  .score-sub {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-top: 0.1rem;
+  }
+
+  /* ── CONTROLS ── */
+  .controls {
+    width: calc(100% - 2rem);
+    max-width: 460px;
+    margin-top: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  .listen-toggle {
+    width: 100%;
+    padding: 0.95rem;
+    border-radius: 16px;
+    border: none;
+    font-family: 'Nunito', sans-serif;
+    font-size: 1rem;
+    font-weight: 900;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: transform 0.12s, opacity 0.12s, background 0.3s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .listen-toggle:active { transform: scale(0.97); }
+  .listen-toggle.on  { background: var(--yellow); color: var(--black); }
+  .listen-toggle.off { background: var(--surface2); color: #888; border: 1px solid #333; }
+
+  .manual-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.65rem;
+  }
+
+  .manual-btn {
+    padding: 0.8rem;
+    border-radius: 14px;
+    border: none;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    cursor: pointer;
+    transition: transform 0.12s, opacity 0.12s;
+    -webkit-tap-highlight-color: transparent;
+    color: #fff;
+  }
+  .manual-btn:active { transform: scale(0.95); opacity: 0.85; }
+  .manual-btn.p1 { background: var(--p1); }
+  .manual-btn.p2 { background: var(--p2); }
+
+  .bottom-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .reset-btn {
+    flex: 1;
+    padding: 0.65rem;
+    border-radius: 12px;
+    background: transparent;
+    border: 1.5px solid #333;
+    color: #555;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .reset-btn:hover { border-color: #666; color: #999; }
+
+  .edit-hint {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    text-align: center;
+    padding-top: 0.2rem;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── WAKE WORD HINT ── */
+  .wake-hint {
+    margin-top: 0.6rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    text-align: center;
+    letter-spacing: 0.04em;
+  }
+  .wake-hint span {
+    color: var(--yellow);
+    font-style: italic;
+  }
+
+  /* ── CONFETTI ── */
+  .confetti-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 999;
+    overflow: hidden;
+  }
+  .c {
+    position: absolute;
+    top: -12px;
+    opacity: 0;
+    border-radius: 2px;
+    animation: fall linear forwards;
+  }
+  @keyframes fall {
+    0%   { opacity: 1; transform: translateY(0) rotate(0deg) scale(1); }
+    80%  { opacity: 1; }
+    100% { opacity: 0; transform: translateY(105vh) rotate(800deg) scale(0.5); }
+  }
+
+  /* ── SCORED FLASH ── */
+  .score-flash {
+    position: fixed;
+    inset: 0;
+    z-index: 998;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+  .score-flash.p1 { background: radial-gradient(circle, rgba(255,77,109,0.25), transparent 70%); }
+  .score-flash.p2 { background: radial-gradient(circle, rgba(59,158,255,0.25), transparent 70%); }
+  .score-flash.show { opacity: 1; }
+
+  /* ── NO SPEECH WARNING ── */
+  .no-speech-msg {
+    display: none;
+    background: #1a1000;
+    border: 1px solid #4a3500;
+    border-radius: 12px;
+    color: #ffcc44;
+    font-size: 0.78rem;
+    font-weight: 700;
+    padding: 0.65rem 1rem;
+    text-align: center;
+    width: calc(100% - 2rem);
+    max-width: 460px;
+    margin-top: 0.5rem;
+    line-height: 1.5;
+  }
+  .no-speech-msg.show { display: block; }
+</style>
+</head>
+<body>
+
+<div class="road-bg"></div>
+<div class="score-flash" id="flash"></div>
+<div class="confetti-layer" id="confetti"></div>
+
+<div class="content">
+  <div class="header">
+    <div><span class="car-icon">🚗</span></div>
+    <div class="title">YELLOW CAR!</div>
+  </div>
+
+  <div class="status-bar off" id="statusBar">
+    <div class="pulse-dot"></div>
+    <div class="status-msg" id="statusMsg">Listening is off</div>
+  </div>
+
+  <div class="no-speech-msg" id="noSpeechMsg">
+    ⚠️ Speech recognition isn't available.<br>Use the manual buttons below.
+  </div>
+
+  <div class="scoreboard">
+    <div class="player-card p1" id="card1">
+      <span class="crown" id="crown1">👑</span>
+      <div class="p-name p1" id="name1" contenteditable="true" spellcheck="false">Dad</div>
+      <div class="score-num" id="score1">0</div>
+      <div class="score-sub">Points</div>
+    </div>
+    <div class="player-card p2" id="card2">
+      <span class="crown" id="crown2">👑</span>
+      <div class="p-name p2" id="name2" contenteditable="true" spellcheck="false">Son</div>
+      <div class="score-num" id="score2">0</div>
+      <div class="score-sub">Points</div>
+    </div>
+  </div>
+
+  <p class="edit-hint">✏️ Tap names to edit</p>
+
+  <div class="controls">
+    <button class="listen-toggle off" id="listenBtn" onclick="toggleListen()">
+      <span id="listenIcon">🎤</span>
+      <span id="listenLabel">START LISTENING</span>
+    </button>
+
+    <div class="wake-hint">Say <span>"Yellow Car"</span> then the player's name</div>
+
+    <div class="manual-row">
+      <button class="manual-btn p1" onclick="score(1)">+1 <span id="mName1">Dad</span></button>
+      <button class="manual-btn p2" onclick="score(2)">+1 <span id="mName2">Son</span></button>
+    </div>
+
+    <div class="bottom-row">
+      <button class="reset-btn" onclick="resetScores()">🔄 Reset Scores</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── State ──────────────────────────────────────────────
+  let scores = [0, 0];
+  let listening = false;
+  let recognition = null;
+  let restartTimer = null;
+  let armed = false;         // true after wake word heard
+  let armedTimer = null;     // auto-disarm after 5s
+
+  const WAKE_WORDS = ['yellow car', 'yellow card', 'yellow ca', 'yellow ka'];
+  const ARMED_TIMEOUT = 5000; // ms to wait for name after wake word
+
+  // ── Speech API setup ───────────────────────────────────
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  if (!SpeechRecognition) {
+    document.getElementById('noSpeechMsg').classList.add('show');
+    document.getElementById('listenBtn').disabled = true;
+    document.getElementById('listenBtn').style.opacity = '0.4';
+    setStatus('off', 'Speech not supported — use buttons');
+  } else {
+    buildRecognition();
+  }
+
+  function buildRecognition() {
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;   // restart loop manually — more reliable on Android
+    recognition.interimResults = true;
+    recognition.lang = 'en-GB';
+    recognition.maxAlternatives = 3;
+
+    recognition.onresult = (e) => {
+      const transcripts = [];
+      for (let i = 0; i < e.results.length; i++) {
+        for (let j = 0; j < e.results[i].length; j++) {
+          transcripts.push(e.results[i][j].transcript.toLowerCase().trim());
+        }
+      }
+      const text = transcripts.join(' ');
+
+      if (!armed) {
+        // Listening for wake word
+        const woke = WAKE_WORDS.some(w => text.includes(w));
+        if (woke) {
+          arm();
+        } else if (e.results[e.results.length - 1].isFinal) {
+          setStatus('wake', 'Listening… say "Yellow Car"');
+        }
+      } else {
+        // Armed — listening for player name
+        if (e.results[e.results.length - 1].isFinal) {
+          const n1 = getName(1);
+          const n2 = getName(2);
+          let matched = false;
+
+          if (text.includes(n1) || text.includes('player one') || text.includes('player 1') || text.includes('one') && n1.length <= 3) {
+            score(1, true);
+            matched = true;
+          } else if (text.includes(n2) || text.includes('player two') || text.includes('player 2') || text.includes('two') && n2.length <= 3) {
+            score(2, true);
+            matched = true;
+          }
+
+          if (!matched) {
+            // Heard something but no name — check if it was the wake word again
+            const woke = WAKE_WORDS.some(w => text.includes(w));
+            if (woke) {
+              arm(); // re-arm
+            } else {
+              disarm();
+              setStatus('wake', 'Didn\'t catch who — say "Yellow Car" again');
+            }
+          }
+        } else {
+          // interim while armed — show what's heard
+          setStatus('armed', `Heard: "${transcripts[0]}"…`);
+        }
+      }
+    };
+
+    recognition.onerror = (e) => {
+      if (e.error === 'no-speech') {
+        // Normal — just restart
+      } else if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        listening = false;
+        setListenBtn(false);
+        setStatus('error', 'Mic permission denied');
+        document.getElementById('noSpeechMsg').classList.add('show');
+        return;
+      } else if (e.error === 'network') {
+        setStatus('error', 'Network error — retrying…');
+      }
+    };
+
+    recognition.onend = () => {
+      if (listening) {
+        // Restart immediately — this is the continuous loop
+        restartTimer = setTimeout(() => {
+          try { recognition.start(); } catch(e) {}
+        }, 120);
+      }
+    };
+  }
+
+  function arm() {
+    armed = true;
+    clearTimeout(armedTimer);
+    setStatus('armed', '🟡 "Yellow Car!" — who got it?');
+    // Auto-disarm if no name heard within timeout
+    armedTimer = setTimeout(() => {
+      if (armed) {
+        disarm();
+        setStatus('wake', 'Timed out — say "Yellow Car" again');
+      }
+    }, ARMED_TIMEOUT);
+  }
+
+  function disarm() {
+    armed = false;
+    clearTimeout(armedTimer);
+  }
+
+  // ── Toggle listen ──────────────────────────────────────
+  function toggleListen() {
+    if (!SpeechRecognition) return;
+    listening = !listening;
+    setListenBtn(listening);
+
+    if (listening) {
+      armed = false;
+      setStatus('wake', 'Listening… say "Yellow Car"');
+      try { recognition.start(); } catch(e) {}
+    } else {
+      clearTimeout(restartTimer);
+      clearTimeout(armedTimer);
+      armed = false;
+      try { recognition.stop(); } catch(e) {}
+      setStatus('off', 'Listening is off');
+    }
+  }
+
+  function setListenBtn(on) {
+    const btn = document.getElementById('listenBtn');
+    const icon = document.getElementById('listenIcon');
+    const label = document.getElementById('listenLabel');
+    btn.className = 'listen-toggle ' + (on ? 'on' : 'off');
+    icon.textContent = on ? '⏹️' : '🎤';
+    label.textContent = on ? 'STOP LISTENING' : 'START LISTENING';
+  }
+
+  // ── Scoring ────────────────────────────────────────────
+  function score(player, fromVoice = false) {
+    disarm();
+    scores[player - 1]++;
+
+    document.getElementById(`score${player}`).textContent = scores[player - 1];
+
+    // Card pop
+    const card = document.getElementById(`card${player}`);
+    card.classList.remove('pop');
+    void card.offsetWidth;
+    card.classList.add('pop');
+
+    // Flash
+    const flash = document.getElementById('flash');
+    flash.className = `score-flash p${player} show`;
+    setTimeout(() => flash.classList.remove('show'), 300);
+
+    const name = getName(player);
+
+    if (fromVoice) {
+      setStatus('scoring', `🚗 ${name} got one! +1 point`);
+      setTimeout(() => {
+        if (listening) setStatus('wake', 'Listening… say "Yellow Car"');
+      }, 2000);
+    }
+
+    updateLeaders();
+    spawnConfetti(player);
+
+    // Re-arm recognition after scoring
+    if (listening && fromVoice) {
+      setTimeout(() => {
+        if (listening && !armed) setStatus('wake', 'Listening… say "Yellow Car"');
+      }, 2200);
+    }
+  }
+
+  function updateLeaders() {
+    const [s1, s2] = scores;
+    document.getElementById('crown1').classList.toggle('visible', s1 > s2);
+    document.getElementById('crown2').classList.toggle('visible', s2 > s1);
+  }
+
+  function resetScores() {
+    scores = [0, 0];
+    document.getElementById('score1').textContent = '0';
+    document.getElementById('score2').textContent = '0';
+    document.getElementById('crown1').classList.remove('visible');
+    document.getElementById('crown2').classList.remove('visible');
+    if (listening) {
+      setStatus('wake', 'Scores reset! Listening… say "Yellow Car"');
+    } else {
+      setStatus('off', 'Scores reset');
+    }
+  }
+
+  // ── Status helper ──────────────────────────────────────
+  function setStatus(state, msg) {
+    const bar = document.getElementById('statusBar');
+    const txt = document.getElementById('statusMsg');
+    bar.className = 'status-bar ' + state;
+    txt.textContent = msg;
+  }
+
+  // ── Name helpers ───────────────────────────────────────
+  function getName(player) {
+    return document.getElementById(`name${player}`).textContent.toLowerCase().trim();
+  }
+
+  function syncManualNames() {
+    document.getElementById('mName1').textContent = document.getElementById('name1').textContent;
+    document.getElementById('mName2').textContent = document.getElementById('name2').textContent;
+  }
+
+  document.getElementById('name1').addEventListener('input', syncManualNames);
+  document.getElementById('name2').addEventListener('input', syncManualNames);
+  ['name1','name2'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); }
+    });
+  });
+
+  // ── Confetti ───────────────────────────────────────────
+  function spawnConfetti(player) {
+    const layer = document.getElementById('confetti');
+    const colors = player === 1
+      ? ['#FF4D6D','#FF8FA3','#FFE000','#fff']
+      : ['#3B9EFF','#74C0FC','#FFE000','#fff'];
+
+    for (let i = 0; i < 28; i++) {
+      const el = document.createElement('div');
+      el.className = 'c';
+      const size = 6 + Math.random() * 9;
+      el.style.cssText = `
+        left: ${10 + Math.random() * 80}%;
+        width: ${size}px;
+        height: ${size * (Math.random() > 0.5 ? 1 : 2.5)}px;
+        background: ${colors[Math.floor(Math.random() * colors.length)]};
+        border-radius: ${Math.random() > 0.4 ? '50%' : '2px'};
+        animation-delay: ${Math.random() * 0.3}s;
+        animation-duration: ${0.9 + Math.random() * 0.7}s;
+      `;
+      layer.appendChild(el);
+      setTimeout(() => el.remove(), 1800);
+    }
+  }
+
+  // ── Service Worker ─────────────────────────────────────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  // ── Keep screen awake (Wake Lock API) ──────────────────
+  let wakeLock = null;
+  async function requestWakeLock() {
+    try {
+      if ('wakeLock' in navigator) {
+        wakeLock = await navigator.wakeLock.request('screen');
+      }
+    } catch(e) {}
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && listening) {
+      requestWakeLock();
+    }
+  });
+  document.getElementById('listenBtn').addEventListener('click', () => {
+    if (listening) requestWakeLock();
+  });
+</script>
+</body>
+</html>
