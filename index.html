@@ -446,7 +446,7 @@
 <body>
 
 <div class="road-bg"></div>
-<div style="position:fixed;bottom:8px;right:10px;font-size:0.6rem;font-weight:700;color:#333;letter-spacing:0.08em;z-index:10;pointer-events:none">v1.8</div>
+<div style="position:fixed;bottom:8px;right:10px;font-size:0.6rem;font-weight:700;color:#333;letter-spacing:0.08em;z-index:10;pointer-events:none">v1.10</div>
 <div class="score-flash" id="flash"></div>
 <div class="confetti-layer" id="confetti"></div>
 
@@ -853,7 +853,7 @@
       osc.frequency.value = 880;
       osc.type = 'sine';
       gain.gain.setValueAtTime(0, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + 0.01);
+      gain.gain.linearRampToValueAtTime(0.9, ctx.currentTime + 0.01);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.2);
@@ -871,7 +871,7 @@
         osc.frequency.value = freq;
         osc.type = 'sine';
         gain.gain.setValueAtTime(0, ctx.currentTime + start);
-        gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + start + 0.02);
+        gain.gain.linearRampToValueAtTime(0.9, ctx.currentTime + start + 0.02);
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + end);
         osc.start(ctx.currentTime + start);
         osc.stop(ctx.currentTime + end + 0.05);
