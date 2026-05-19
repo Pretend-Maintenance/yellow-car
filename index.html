@@ -517,7 +517,55 @@
   let armed = false;
   let armedTimer = null;
 
-  const WAKE_WORDS = ['yellow car', 'yellow card', 'yellow ca', 'yellow ka'];
+  // Levenshtein distance — used by both wake word and name matching
+  function levenshtein(a, b) {
+    const m = a.length, n = b.length;
+    const dp = Array.from({length: m+1}, (_, i) => [i, ...Array(n).fill(0)]);
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++)
+      for (let j = 1; j <= n; j++)
+        dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1]
+          : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
+    return dp[m][n];
+  }
+
+  // Exact phrase matches — covers SR mishears, kids voices, partial phrases
+  const WAKE_WORDS = [
+    // Standard
+    'yellow car', 'yellow card', 'yellow ca', 'yellow ka',
+    // SR mishears of "yellow"
+    'yello car', 'yello card', 'jello car', 'hello car',
+    'fellow car', 'mellow car', 'below car',
+    'yellow bar', 'yellow far', 'yellow jar', 'yellow star', 'yellow tar',
+    // Kids voice / fast speech
+    'yella car', 'yella', 'yellar', 'yeller',
+    'ellow car', 'ello car',
+    // Partial — just "yellow" on its own is distinctive enough in context
+    // handled separately in woke detection below
+  ];
+
+  // Single word triggers — low false-positive risk in a car game context
+  const WAKE_SINGLE = [
+    'yellow', 'yello', 'yella', 'yeller', 'yellar', 'jello', 'yelo'
+  ];
+
+  // Phrase fragments that suggest a yellow car sighting
+  const WAKE_PHRASES = [
+    "that's yellow", "thats yellow", "it's yellow", "its yellow",
+    "look yellow", "see yellow", "a yellow", "the yellow",
+    "yellow one", "yellow vehicle", "yellow van", "yellow truck",
+    "yellow bus", "yellow cab", "yellow taxi",
+  ];
+
+  function isWakeWord(text) {
+    if (WAKE_WORDS.some(w => text.includes(w))) return true;
+    if (WAKE_PHRASES.some(w => text.includes(w))) return true;
+    // Single word match — only trigger if the WHOLE transcript is just the word
+    // or it's a very short utterance (kids saying just "yellow!")
+    const words = text.trim().split(/\s+/);
+    if (words.length <= 3 && WAKE_SINGLE.some(w => words.some(word => word === w || levenshtein(word, w) <= 1))) return true;
+    return false;
+  }
   const ARMED_TIMEOUT = 5000;
 
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -545,14 +593,20 @@
           transcripts.push(e.results[i][j].transcript.toLowerCase().trim());
         }
       }
+      // Use all alternatives joined — gives more chances to match
       const text = transcripts.join(' ');
+      // Also build a deduplicated word set across all alternatives for fuzzy checks
+      const allWords = [...new Set(text.split(/\s+/).filter(Boolean))];
 
       if (!armed) {
-        const woke = WAKE_WORDS.some(w => text.includes(w));
-        if (woke) {
+        if (isWakeWord(text)) {
           arm();
         } else if (e.results[e.results.length - 1].isFinal) {
-          setStatus('wake', 'Listening… say "Yellow Car"');
+          // Show what was heard briefly so you can see what SR is picking up
+          setStatus('wake', `Listening… heard: "${transcripts[0] || '…'}"`);
+          setTimeout(() => {
+            if (listening && !armed) setStatus('wake', 'Listening… say "Yellow Car"');
+          }, 2500);
         }
       } else {
         if (e.results[e.results.length - 1].isFinal) {
@@ -611,8 +665,7 @@
           }
 
           if (!matched) {
-            const woke = WAKE_WORDS.some(w => text.includes(w));
-            if (woke) { arm(); }
+            if (isWakeWord(text)) { arm(); }
             else {
               disarm();
               // Keep showing what was heard so you can see why it missed
@@ -760,17 +813,7 @@
     document.getElementById('mName2').textContent = document.getElementById('name2').textContent;
   }
 
-  // Levenshtein distance for fuzzy name matching
-  function levenshtein(a, b) {
-    const m = a.length, n = b.length;
-    const dp = Array.from({length: m+1}, (_, i) => [i, ...Array(n).fill(0)]);
-    for (let j = 0; j <= n; j++) dp[0][j] = j;
-    for (let i = 1; i <= m; i++)
-      for (let j = 1; j <= n; j++)
-        dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1]
-          : 1 + Math.min(dp[i-1][j], dp[i][j-1], dp[i-1][j-1]);
-    return dp[m][n];
-  }
+
 
   function editName(player) {
     const current = document.getElementById('name' + player).textContent.trim();
